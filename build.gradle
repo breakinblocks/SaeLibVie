@@ -2,6 +2,7 @@ plugins {
     id 'java-library'
     id 'maven-publish'
     id 'net.neoforged.moddev' version "${mdg_version}"
+    id 'me.modmuss50.mod-publish-plugin' version '1.1.0'
     id 'idea'
 }
 
@@ -9,7 +10,8 @@ tasks.named('wrapper', Wrapper).configure {
     distributionType = Wrapper.DistributionType.BIN
 }
 
-def resolvedModVersion = mod_version.toString().endsWith("-SNAPSHOT")
+def isSnapshot = mod_version.toString().endsWith("-SNAPSHOT")
+def resolvedModVersion = isSnapshot
         ? mod_version.toString().replace("-SNAPSHOT", "-" + new java.text.SimpleDateFormat("yyyyMMdd-HHmmss").format(new Date()) + "-SNAPSHOT")
         : mod_version.toString()
 version = "${minecraft_version}-${resolvedModVersion}"
@@ -130,7 +132,7 @@ publishing {
     repositories {
         maven {
             name = "BreakInBlocks"
-            url = version.toString().endsWith("-SNAPSHOT") ?
+            url = isSnapshot ?
                 "https://maven.breakinblocks.com/snapshots" :
                 "https://maven.breakinblocks.com/releases"
             credentials {
@@ -139,6 +141,70 @@ publishing {
             }
         }
     }
+}
+
+def latestChangelog = {
+    def started = false
+    def section = []
+    for (String line : file("CHANGELOG.md").readLines()) {
+        if (line.startsWith("## ")) {
+            if (started) {
+                break
+            }
+            started = true
+            continue
+        }
+        if (started) {
+            section.add(line)
+        }
+    }
+    return section.join(System.lineSeparator()).trim()
+}
+
+publishMods {
+    file = jar.archiveFile
+    changelog = latestChangelog()
+    version = project.version
+    type = isSnapshot ? BETA : STABLE
+    modLoaders.add("neoforge")
+    displayName = "[${minecraft_version}] ${mod_name} ${mod_version}"
+
+    curseforge {
+        projectId = "1680716"
+        projectSlug = "saelibvie"
+        accessToken = providers.environmentVariable("CURSEFORGE_TOKEN")
+        minecraftVersions.add(minecraft_version)
+        javaVersions.add(JavaVersion.VERSION_21)
+        clientRequired = true
+        serverRequired = true
+        optional("jei")
+    }
+
+    def modrinthId = providers.environmentVariable("MODRINTH_ID").getOrNull()
+    if (modrinthId != null) {
+        modrinth {
+            projectId = modrinthId
+            accessToken = providers.environmentVariable("MODRINTH_TOKEN")
+            minecraftVersions.add(minecraft_version)
+            optional("jei")
+        }
+    }
+}
+
+tasks.register('publishMaven') {
+    description = 'Publishes the mod JAR and sources JAR to the BreakInBlocks Maven repository.'
+    group = 'publishing'
+    dependsOn 'publishMavenJavaPublicationToBreakInBlocksRepository'
+}
+
+tasks.register('publishMod') {
+    description = 'Publishes the mod to CurseForge and the BreakInBlocks Maven repository.'
+    group = 'publishing'
+    dependsOn 'publishMods', 'publishMaven'
+}
+
+tasks.named('publishMods') {
+    finalizedBy 'publishMaven'
 }
 
 tasks.withType(JavaCompile).configureEach {
