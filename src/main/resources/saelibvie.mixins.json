@@ -1,0 +1,18 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "com.breakinblocks.saelibvie.mixin",
+  "compatibilityLevel": "JAVA_25",
+  "mixins": [
+    "CompoundContainerAccessor",
+    "ItemCraftingRemainderMixin",
+    "IdentifierMixin",
+    "TextColorMixin"
+  ],
+  "client": [
+    "MultilineTextFieldAccessor"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  }
+}
